@@ -40,7 +40,7 @@ export function Contact() {
 
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwfzpaGkd9eTf_RhFtlCdke7WRi9XhlvIvjpnXgSJDnD-W1Grs7obpV0opQI3vWmAsM/exec",
+        "https://script.google.com/macros/s/AKfycbzylVOBk12CaBq2mJeG_oW7clGYBVXOnGQQ97LcAp1BK_C9qUeyC4OWX7wswzbp1Zq9/exec",
         {
           method: "POST",
           headers: {
@@ -53,9 +53,19 @@ export function Contact() {
         }
       );
 
-      const result = await response.json();
+      const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        throw new Error(
+          `Invalid JSON response from server. Status: ${response.status} ${response.statusText}. Response starts with: ${text.substring(0, 300)}`
+        );
+      }
 
-      if (response.ok && result.success) {
+      console.log("Google Apps Script response:", result, response);
+
+      if (response.ok && (result.success || result.result === "success" || result.status === "success")) {
         setFormData({
           name: "",
           email: "",
@@ -67,9 +77,11 @@ export function Contact() {
           message: "Thanks, your message has been sent successfully.",
         });
       } else {
-        throw new Error(result.message || "Unable to send message.");
+        throw new Error(result.message || result.error || "Unable to send message.");
       }
+
     } catch (error) {
+      console.error("Error submitting contact form:", error);
       setStatus({
         type: "error",
         message:
@@ -175,11 +187,10 @@ export function Contact() {
           </label>
           {status.message && (
             <p
-              className={`mt-5 rounded-md px-4 py-3 text-sm font-bold ${
-                status.type === "success"
+              className={`mt-5 rounded-md px-4 py-3 text-sm font-bold ${status.type === "success"
                   ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
                   : "bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300"
-              }`}
+                }`}
             >
               {status.message}
             </p>
