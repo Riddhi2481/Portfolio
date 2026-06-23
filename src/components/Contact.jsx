@@ -22,6 +22,16 @@ export function Contact() {
       [e.target.name]: e.target.value,
     });
   };
+
+  const buildMailto = (data) => {
+    const to = profile.email || "";
+    const subject = encodeURIComponent(data.subject || "");
+    const body = encodeURIComponent(
+      `${data.message || ""}\n\nFrom: ${data.name || ""} (${data.email || ""})`,
+    );
+    return `mailto:${to}?subject=${subject}&body=${body}`;
+  };
+
   const contacts = [
     ["Email", profile.email, FaEnvelope, `mailto:${profile.email}`],
     [
@@ -40,52 +50,38 @@ export function Contact() {
 
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbzylVOBk12CaBq2mJeG_oW7clGYBVXOnGQQ97LcAp1BK_C9qUeyC4OWX7wswzbp1Zq9/exec",
+        "https://script.google.com/macros/s/AKfycbxGWAcFsz65T87ds65nHoc2nMarksur84NHYzH-enmOwKLa0G9Y1fOOLaVqY6cDpvKT/exec",
         {
           method: "POST",
           headers: {
-            "Content-Type": "text/plain;charset=utf-8",
+            "Content-Type": "text/plain;charset=utf-8", // Bypasses the OPTIONS preflight check
           },
           body: JSON.stringify({
-            ...formData,
-            submittedAt: new Date().toISOString(),
+            name: formData.name,
+            email: formData.email,
+            subject: formData.subject,
+            message: formData.message,
           }),
         }
       );
 
       const text = await response.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        throw new Error(
-          `Invalid JSON response from server. Status: ${response.status} ${response.statusText}. Response starts with: ${text.substring(0, 300)}`
-        );
-      }
+      const result = JSON.parse(text);
 
-      console.log("Google Apps Script response:", result, response);
-
-      if (response.ok && (result.success || result.result === "success" || result.status === "success")) {
-        setFormData({
-          name: "",
-          email: "",
-          subject: "",
-          message: "",
-        });
+      if (response.ok && result.success) {
+        setFormData({ name: "", email: "", subject: "", message: "" });
         setStatus({
           type: "success",
-          message: "Thanks, your message has been sent successfully.",
+          message: "Thanks! Your message has been sent successfully.",
         });
       } else {
-        throw new Error(result.message || result.error || "Unable to send message.");
+        throw new Error(result.error || "Failed to submit.");
       }
-
     } catch (error) {
-      console.error("Error submitting contact form:", error);
+      console.error("Contact Error:", error);
       setStatus({
         type: "error",
-        message:
-          "Message could not be sent right now. Please use email or phone instead.",
+        message: "Failed to send message. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -186,14 +182,32 @@ export function Contact() {
             />
           </label>
           {status.message && (
-            <p
-              className={`mt-5 rounded-md px-4 py-3 text-sm font-bold ${status.type === "success"
+            <div className="mt-5">
+              <p
+                className={`rounded-md px-4 py-3 text-sm font-bold ${status.type === "success"
                   ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
                   : "bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300"
-                }`}
-            >
-              {status.message}
-            </p>
+                  }`}
+              >
+                {status.message}
+              </p>
+              {status.type === "error" && (
+                <div className="mt-3 flex gap-2">
+                  <a
+                    href={buildMailto(formData)}
+                    className="focus-ring inline-flex items-center gap-2 rounded-md bg-royal px-4 py-2 text-sm font-extrabold text-white hover:bg-blue-700 dark:bg-skyline dark:text-ink"
+                  >
+                    Send via email
+                  </a>
+                  <a
+                    href={`tel:${profile.phone.replace(/\s/g, "")}`}
+                    className="focus-ring inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-extrabold text-ink dark:border-white/10 dark:text-paper"
+                  >
+                    Call
+                  </a>
+                </div>
+              )}
+            </div>
           )}
           <button
             type="submit"
